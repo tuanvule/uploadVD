@@ -1,1 +1,5 @@
 Flask==2.2.2
+moviepy==1.0.3
+imageio==2.33.1
+imageio-ffmpeg==0.4.9
+firebase-admin==6.5.0
