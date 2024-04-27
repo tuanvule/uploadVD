@@ -1,4 +1,5 @@
 .vercel
+.json
 *.log
 *.pyc
 __pycache__
