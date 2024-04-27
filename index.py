@@ -82,8 +82,8 @@ def generate_video():
 
     concat_video = mpe.concatenate_videoclips(video, method="compose")
 
-    audio_background = mpe.AudioFileClip(absolute_path + '/audio.mp3').set_duration(concat_video.duration)
-    my_clip = concat_video.set_audio(audio_background)
+    # audio_background = mpe.AudioFileClip(absolute_path + '/audio.mp3').set_duration(concat_video.duration)
+    my_clip = concat_video
     my_clip.write_videofile(url, 1)
     my_clip.close()
 
