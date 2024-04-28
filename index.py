@@ -3,9 +3,10 @@ import moviepy.editor as mpe
 from PIL import Image, ImageDraw
 import numpy as np
 import os
-# import fdb.firestore_config
+import fdb.firestore_config
 from fdb.uti.upload import upload_video_to_storage
 import webbrowser
+import time
 # import cv2
 
 app = Flask(__name__)
@@ -106,8 +107,8 @@ def home():
 @app.route("/generate_video", methods=['POST'])
 def generate_video():
     data = request.get_json()
-
     for [positions, move, remove] in data:
+        time.sleep(0.05)
         generate_image(positions, move, remove)
 
     concat_video = mpe.concatenate_videoclips(video, method="compose")
@@ -126,10 +127,7 @@ def about():
     return 'About'
 
 if __name__ == '__main__':
-    # open_browser = lambda: webbrowser.open_new("upload-vd.vercel.app")
-    # Timer(1, open_browser).start()
     # app.run(debug=True, use_reloader=False)
 
     open_browser = lambda: webbrowser.open_new("http://127.0.0.1:4000")
-    # Timer(1, open_browser).start()
     app.run(port=4000, debug=True, use_reloader=False)
