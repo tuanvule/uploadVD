@@ -1,133 +1,187 @@
 from flask import Flask, request
-import moviepy.editor as mpe
-from PIL import Image, ImageDraw
-import numpy as np
-import os
-import fdb.firestore_config
-from fdb.uti.upload import upload_video_to_storage
 import webbrowser
+import os
+from io import StringIO
+import traceback
+import sys
 import time
+import json
+import datetime
+
 # import cv2
 
 app = Flask(__name__)
 
 absolute_path = os.getcwd()
 
-# print("___", absolute_path, "____")
-
-def declare():
-    global positions, point, frame, video
-
-    positions = [None,
-                [(0,2), (0,3), (4,3), (0,4), (1,4), (2,4), (3,4), (4,4)],
-                [(0,0), (1,0), (2,0), (3,0), (4,0), (0,1), (4,1), (4,2)]]
-
-    point = []
-
-    frame = Image.open(absolute_path + "/chessboard.png")
-    frame_cop = frame.copy()
-    draw = ImageDraw.Draw(frame_cop)
-
-    for x, y in positions[1]:
-        draw.ellipse((x*100+80, y*100+80, x*100+120, y*100+120), fill="blue", outline="blue")
-    for x, y in positions[-1]:
-        draw.ellipse((x*100+80, y*100+80, x*100+120, y*100+120), fill="red", outline="red")
-
-    frame_cop = np.array(frame_cop)
-    video = [mpe.ImageClip(frame_cop).set_duration(1)]
-
-declare()
-
-def generate_image(positions, move, remove):
-    frame_cop = frame.copy()
-    draw = ImageDraw.Draw(frame_cop)
-
-    for x, y in remove:
-        draw.ellipse((x*100+80, y*100+80, x*100+120, y*100+120), fill=None, outline="#FFC900", width=4)
-    for x, y in positions[1]:
-        draw.ellipse((x*100+80, y*100+80, x*100+120, y*100+120), fill="blue", outline="blue")
-    for x, y in positions[-1]:
-        draw.ellipse((x*100+80, y*100+80, x*100+120, y*100+120), fill="red", outline="red")
-    new_x = move["new_pos"][0]
-    new_y = move["new_pos"][1]
-    old_x = move["selected_pos"][0]
-    old_y = move["selected_pos"][1]
-    draw.ellipse((new_x*100+80, new_y*100+80, new_x*100+120, new_y*100+120), fill=None, outline="green", width=5)
-    draw.ellipse((old_x*100+80, old_y*100+80, old_x*100+120, old_y*100+120), fill=None, outline="green", width=5)
-
-    frame_cop = np.array(frame_cop)
-    video.append(mpe.ImageClip(frame_cop).set_duration(1))
-# def __init__():
-#     global positions, point, frame, video
-
-#     game_state = {
-#                   "board": [[-1, -1, -1, -1, -1],
-#                             [-1,  0,  0,  0, -1],
-#                             [ 1,  0,  0,  0, -1],
-#                             [ 1,  0,  0,  0,  1],
-#                             [ 1,  1,  1,  1,  1]]}
-#     positions = [None,
-#                 [(0,2), (0,3), (4,3), (0,4), (1,4), (2,4), (3,4), (4,4)],
-#                 [(0,0), (1,0), (2,0), (3,0), (4,0), (0,1), (4,1), (4,2)]]
-
-#     point = []
-
-#     frame = cv2.imread(absolute_path + "/chessboard.png")
-#     frame_cop = frame.copy()
-#     video = cv2.VideoWriter(absolute_path + "video.mp4", 0, 1, (600, 600))
-#     for x, y in positions[1]:
-#         cv2.circle(frame_cop, (100*x+100,100*y+100), 22, (255,0,0), -1)
-#     for x, y in positions[-1]:
-#         cv2.circle(frame_cop, (100*x+100,100*y+100), 22, (0,0,255), -1)
-#     video.write(frame_cop)
-
-# __init__()
-
-# def renderVD(positions, move, remove):
-
-#     frame_cop = frame.copy()
-#     for x, y in remove:
-#         cv2.circle(frame_cop, (100*x+100,100*y+100), 22, (0,201,255), 3)
-#     for x, y in positions[1]:
-#         cv2.circle(frame_cop, (100*x+100,100*y+100), 22, (255,0,0), -1)
-#     for x, y in positions[-1]:
-#         cv2.circle(frame_cop, (100*x+100,100*y+100), 22, (0,0,255), -1)
-#     new_x = move["new_pos"][0]
-#     new_y = move["new_pos"][1]
-#     old_x = move["selected_pos"][0]
-#     old_y = move["selected_pos"][1]
-#     cv2.circle(frame_cop, (100*new_x+100,100*new_y+100), 22, (0,128,0), 3)
-#     cv2.circle(frame_cop, (100*old_x+100,100*old_y+100), 22, (0,128,0), 3)
-#     video.write(frame_cop)
-
 @app.route('/')
 def home():
     return 'Hello, World!'
 
-@app.route("/generate_video", methods=['POST'])
-def generate_video():
-    data = request.get_json()
-    for [positions, move, remove] in data:
-        time.sleep(0.05)
-        generate_image(positions, move, remove)
+@app.route('/run_compile', methods=["POST"])
+def run_compile():
+    res = request.get_json()
+    code = res["code"]
+    inp_oup = res["inp_oup"]
+    org_stdout = sys.stdout
+    err = ""
 
-    concat_video = mpe.concatenate_videoclips(video, method="compose")
+    user_output = []
+    for i in inp_oup:
+        f = StringIO()
+        sys.stdout = f
+        try:
+            ldict = {}
+            start = time.time()
+            exec(code, {}, ldict)
+            end = time.time()
+            Uoutput = ldict["main"](*i["input"])
+            Uoutput = json.loads(json.dumps(Uoutput).replace("(","[").replace(")","]"))
+            if type(Uoutput) is list:
+                comparision = sorted(i["output"]) == sorted(Uoutput)
+            else:
+                comparision = i["output"] == Uoutput
+            if comparision:
+                user_output.append({
+                    # "log": f.getvalue(),
+                    "output_status" : "AC",
+                    "output" : Uoutput,
+                    "runtime" : (end-start) * 10**3
+                })
+            else:
+                user_output.append({
+                    # "log": f.getvalue(),
+                    "output_status" : "WA",
+                    "output" : Uoutput
+                })
+        except:
+            err = traceback.format_exc()
+            user_output.append({
+                # "log": f.getvalue(),
+                "output_status" : "SE",
+            })
+    sys.stdout = org_stdout
 
-    audio_background = mpe.AudioFileClip(absolute_path + '/audio.mp3').set_duration(concat_video.duration)
-    my_clip = concat_video.set_audio(audio_background)
-    my_clip.write_videofile(absolute_path + "/result.mp4", 1)
-    my_clip.close()
-    
-    url = upload_video_to_storage(absolute_path + "/result.mp4", "videos/video.mp4")
-    video.clear()
-    return url
+    if any(i["output_status"]=="SE" for i in user_output):
+        status = "SE"
+    elif any(i["output_status"]=="WA" for i in user_output):
+        status = "WA"
+    else:
+        status = "AC"
 
+    if err:
+        return_data = {
+            "status": "SE",
+            "output": [i["output"] for i in inp_oup],
+            "err": err,
+        }
+    else:
+        return_data = {
+            "status": status,
+            "output": [i["output"] for i in inp_oup],
+            "user_output": user_output,
+        }
+
+    print(return_data)
+
+    return return_data
+
+@app.route('/submit_compile', methods=['POST'])
+def submit_compile():
+    res = request.get_json()
+
+    compile_date = {
+        "update_data": {
+
+        },
+
+        "return_data": {
+
+        }
+    }
+
+    code = res["code"]
+    inp_oup = res["inp_oup"]
+    org_stdout = sys.stdout
+    soAc = 0
+    err = ""
+
+    user_output = []
+    start = time.time()
+    for i in inp_oup:
+        f = StringIO()
+        sys.stdout = f
+        try:
+            ldict = {}
+            exec(code, {}, ldict)
+            Uoutput = ldict["main"](*i["input"])
+            Uoutput = json.loads(json.dumps(Uoutput).replace("(","[").replace(")","]"))
+            if type(Uoutput) is list:
+                comparision = sorted(i["output"]) == sorted(Uoutput)
+            else:
+                comparision = i["output"] == Uoutput
+
+            if comparision:
+                user_output.append({
+                    "log": f.getvalue(),
+                    "output_status" : "AC",
+                    "output" : Uoutput,
+                })
+                soAc+=1
+            else:
+                user_output.append({
+                    "log": f.getvalue(),
+                    "output_status" : "WA",
+                    "output" : Uoutput
+                })
+        except:
+            err = traceback.format_exc()
+            user_output.append({
+                "log": f.getvalue(),
+                "output_status" : "SE",
+            })
+    end = time.time()
+    sys.stdout = org_stdout
+
+    if any(i["output_status"]=="SE" for i in user_output):
+        status = "SE"
+    elif any(i["output_status"]=="WA" for i in user_output):
+        status = "WA"
+    else:
+        status = "AC"
+
+    now = datetime.datetime.now()
+
+    date_string = now.strftime("%d/%m/%Y")
+
+    compile_date["update_data"] = {
+        "code": code,
+        "status": status,
+        "test_finished": f"{soAc}/{len(user_output)}",
+        "submit_time": date_string,
+        "run_time": (end-start) * 10**3,
+    }
+
+    if err:
+        compile_date["return_data"] = {
+            "status": "SE",
+            "output": [i["output"] for i in inp_oup],
+            "err": err,
+        }
+    else:
+        compile_date["return_data"] = {
+            "status": status,
+            "output": [i["output"] for i in inp_oup],
+            "user_output": user_output,
+            "test_finished": f"{soAc}/{len(user_output)}",
+            "run_time": (end-start) * 10**3,
+        }
+
+    return compile_date
 @app.route('/about')
 def about():
     return 'About'
 
 if __name__ == '__main__':
-    # app.run(debug=True, use_reloader=False)
-
     open_browser = lambda: webbrowser.open_new("http://127.0.0.1:4000")
     app.run(port=4000, debug=True, use_reloader=False)
