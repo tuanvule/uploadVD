@@ -6,7 +6,7 @@ import traceback
 import sys
 import time
 import json
-import datetime
+# import datetime
 
 # import cv2
 
@@ -157,15 +157,11 @@ def submit_compile():
     else:
         status = "AC"
 
-    now = datetime.datetime.now()
-
-    date_string = now.strftime("%d/%m/%Y")
-
     compile_date["update_data"] = {
         "code": code,
         "status": status,
         "test_finished": f"{soAc}/{len(user_output)}",
-        "submit_time": date_string,
+        "submit_time": res["time"],
         "run_time": (end-start) * 10**3,
     }
 
