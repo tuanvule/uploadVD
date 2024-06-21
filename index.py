@@ -26,6 +26,11 @@ def run_compile():
     org_stdout = sys.stdout
     err = ""
 
+    dd = {
+        "return_data": {},
+        "code": code,
+    }
+
     user_output = []
     for i in inp_oup:
         f = StringIO()
@@ -82,9 +87,11 @@ def run_compile():
             "user_output": user_output,
         }
 
-    print(return_data)
+    # print(return_data)
 
-    return return_data
+    dd["return_data"] = return_data
+
+    return dd
 
 @app.route('/submit_compile', methods=['POST'])
 def submit_compile():
