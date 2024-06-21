@@ -43,21 +43,21 @@ def run_compile():
                 comparision = i["output"] == Uoutput
             if comparision:
                 user_output.append({
-                    # "log": f.getvalue(),
+                    "log": f.getvalue(),
                     "output_status" : "AC",
                     "output" : Uoutput,
                     "runtime" : (end-start) * 10**3
                 })
             else:
                 user_output.append({
-                    # "log": f.getvalue(),
+                    "log": f.getvalue(),
                     "output_status" : "WA",
                     "output" : Uoutput
                 })
         except:
             err = traceback.format_exc()
             user_output.append({
-                # "log": f.getvalue(),
+                "log": f.getvalue(),
                 "output_status" : "SE",
             })
     sys.stdout = org_stdout
