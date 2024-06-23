@@ -6,27 +6,35 @@ import traceback
 import sys
 import time
 import json
-from timeout_decorator import timeout
+import threading
 from tool import valid_move, distance
 # import datetime
 
 # import cv2
 
-@timeout(1)
-def safe_exec(code, input, locals):
-    exec(code, {"valid_move": valid_move, "distance": distance}, locals)
-    func_to_del = ['eval', 'exec', 'input', '__import__', 'open']
-    backup_builtins = {func:__builtins__.__dict__[func] for func in func_to_del}
+def safe_exec(code, input):
+    def wrapper():
+        global result
 
-    for func in func_to_del:
-        del __builtins__.__dict__[func]
+        locals = {}
+        exec(code, {"valid_move": valid_move, "distance": distance}, locals)
+        func_to_del = ['eval', 'exec', 'input', '__import__', 'open']
+        backup_builtins = {func:__builtins__.__dict__[func] for func in func_to_del}
 
-    oup = locals["main"](*input)
+        for func in func_to_del:
+            del __builtins__.__dict__[func]
 
-    for func, impl in backup_builtins.items():
-        __builtins__.__dict__[func] = impl
+        result = locals["main"](*input)
 
-    return oup
+        for func, impl in backup_builtins.items():
+            __builtins__.__dict__[func] = impl
+
+    thread = threading.Thread(target=wrapper)
+    thread.start()
+    thread.join(5) # time_limit
+
+    if thread.is_alive(): raise Exception("RE")
+    return result
 
 app = Flask(__name__)
 
@@ -54,9 +62,8 @@ def run_compile():
         f = StringIO()
         sys.stdout = f
         try:
-            ldict = {}
             start = time.time()
-            Uoutput = safe_exec(code, i["input"], ldict)
+            Uoutput = safe_exec(code, i["input"])
             end = time.time()
             Uoutput = json.loads(json.dumps(Uoutput).replace("(","[").replace(")","]"))
             if type(Uoutput) is list:
@@ -136,8 +143,7 @@ def submit_compile():
         f = StringIO()
         sys.stdout = f
         try:
-            ldict = {}
-            Uoutput = safe_exec(code, i["input"], ldict)
+            Uoutput = safe_exec(code, i["input"])
             Uoutput = json.loads(json.dumps(Uoutput).replace("(","[").replace(")","]"))
             if type(Uoutput) is list:
                 comparision = sorted(i["output"]) == sorted(Uoutput)
