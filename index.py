@@ -8,6 +8,7 @@ import time
 import json
 import threading
 from tool import valid_move, distance
+import builtins
 # import datetime
 
 # import cv2
@@ -19,15 +20,15 @@ def safe_exec(code, input):
         locals = {}
         exec(code, {"valid_move": valid_move, "distance": distance}, locals)
         func_to_del = ['eval', 'exec', 'input', '__import__', 'open']
-        backup_builtins = {func:__builtins__.__dict__[func] for func in func_to_del}
+        backup_builtins = {func:getattr(builtins, func) for func in func_to_del}
 
         for func in func_to_del:
-            del __builtins__.__dict__[func]
+            delattr(builtins, func)
 
         result = locals["main"](*input)
 
         for func, impl in backup_builtins.items():
-            __builtins__.__dict__[func] = impl
+            setattr(builtins, func, impl)
 
     thread = threading.Thread(target=wrapper)
     thread.start()
