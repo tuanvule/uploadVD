@@ -6,9 +6,27 @@ import traceback
 import sys
 import time
 import json
+from timeout_decorator import timeout
+from tool import valid_move, distance
 # import datetime
 
 # import cv2
+
+@timeout(1)
+def safe_exec(code, input, locals):
+    exec(code, {"valid_move": valid_move, "distance": distance}, locals)
+    func_to_del = ['eval', 'exec', 'input', '__import__', 'open']
+    backup_builtins = {func:__builtins__.__dict__[func] for func in func_to_del}
+
+    for func in func_to_del:
+        del __builtins__.__dict__[func]
+
+    oup = locals["main"](*input)
+
+    for func, impl in backup_builtins.items():
+        __builtins__.__dict__[func] = impl
+
+    return oup
 
 app = Flask(__name__)
 
@@ -38,9 +56,8 @@ def run_compile():
         try:
             ldict = {}
             start = time.time()
-            exec(code, {}, ldict)
+            Uoutput = safe_exec(code, i["input"], ldict)
             end = time.time()
-            Uoutput = ldict["main"](*i["input"])
             Uoutput = json.loads(json.dumps(Uoutput).replace("(","[").replace(")","]"))
             if type(Uoutput) is list:
                 comparision = sorted(i["output"]) == sorted(Uoutput)
@@ -120,8 +137,7 @@ def submit_compile():
         sys.stdout = f
         try:
             ldict = {}
-            exec(code, {}, ldict)
-            Uoutput = ldict["main"](*i["input"])
+            Uoutput = safe_exec(code, i["input"], ldict)
             Uoutput = json.loads(json.dumps(Uoutput).replace("(","[").replace(")","]"))
             if type(Uoutput) is list:
                 comparision = sorted(i["output"]) == sorted(Uoutput)
@@ -185,6 +201,6 @@ def submit_compile():
 def about():
     return 'About'
 
-if __name__ == '__main__':
-    open_browser = lambda: webbrowser.open_new("http://127.0.0.1:4000")
-    app.run(port=4000, debug=True, use_reloader=False)
+# if __name__ == '__main__':
+#     open_browser = lambda: webbrowser.open_new("http://127.0.0.1:4000")
+#     app.run(port=4000, debug=True, use_reloader=False)
